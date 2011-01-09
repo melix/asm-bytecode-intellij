@@ -9,6 +9,8 @@
         Version 0.2
             - Fixed .class files not being found under Windows
             - Fixed tool window not opening if output directory doesn't exist
+            - Added shortcut in "Code" menu
+            - Do not compile file if up-to-date
     </change-notes>
 
 	<application-components>
