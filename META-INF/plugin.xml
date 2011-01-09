@@ -5,6 +5,12 @@
 	<vendor>Cédric Champeau</vendor>
 	<idea-version since-build="8000"/>
 
+    <change-notes>
+        Version 0.2
+            - Fixed .class files not being found under Windows
+            - Fixed tool window not opening if output directory doesn't exist
+    </change-notes>
+
 	<application-components>
 	</application-components>
 
@@ -16,6 +22,7 @@
 				text="Show Bytecode outline"
 				description="Shows the bytecode outline and ASMified code from the current class">
 			<add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="CodeMenu" anchor="last"/>
 		</action>
 	</actions>
 

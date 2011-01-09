@@ -22,16 +22,19 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.actionSystem.Presentation;
+import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.compiler.CompileContext;
 import com.intellij.openapi.compiler.CompileScope;
 import com.intellij.openapi.compiler.CompileStatusNotification;
 import com.intellij.openapi.compiler.CompilerManager;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.CompilerModuleExtension;
+import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
@@ -44,6 +47,10 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 
 
 /**
@@ -89,55 +96,78 @@ public class ShowBytecodeOutlineAction extends AnAction {
             if ("class".equals(virtualFile.getExtension())) {
                 updateToolWindowContents(project, virtualFile);
             } else {
-                ApplicationManager.getApplication().invokeLater(new Runnable() {
+                final Application application = ApplicationManager.getApplication();
+                application.runWriteAction(new Runnable() {
                     public void run() {
-                        VirtualFile outputDirectory = cme == null ? null : cme.getCompilerOutputPath();
-                        // the commented test triggers the following exception in idea
-                        //					null
-                        //java.lang.AssertionError
-                        //	at com.intellij.openapi.project.DumbServiceImpl.waitForSmartMode(DumbServiceImpl.java:251)
-                        //	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:1863)
-                        //	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:1241)
-                        //	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:751)
-                        //                        if (outputDirectory != null && false) { //compilerManager.isUpToDate(compileScope)) {
-                        //                            final VirtualFile file = findClassFile(outputDirectory, psiFile, project);
-                        //                            updateToolWindowContents(project, file);
-                        //                        } else {
-                        compilerManager.compile(files, new CompileStatusNotification() {
-                            public void finished(boolean aborted, int errors, int warnings, final CompileContext compileContext) {
-                                if (errors == 0) {
-                                    VirtualFile outputDirectory = cme.getCompilerOutputPath();
-                                    if (outputDirectory != null) {
-                                        final VirtualFile file = findClassFile(outputDirectory, psiFile);
-                                        updateToolWindowContents(project, file);
-                                    }
-                                }
-                            }
-                        }, false);
+                        FileDocumentManager.getInstance().saveDocument(editor.getDocument());
                     }
-                    //}
+                });
+                application.executeOnPooledThread(new Runnable() {
+                    public void run() {
+                        final VirtualFile[] result = {null};
+                        VirtualFile outputDirectory = cme == null ? null : cme.getCompilerOutputPath();
+                        if (outputDirectory != null && compilerManager.isUpToDate(compileScope)) {
+                            result[0] = findClassFile(outputDirectory, psiFile);
+                        } else {
+                            final Semaphore semaphore = new Semaphore(1);
+                            try {
+                                semaphore.acquire();
+                            } catch (InterruptedException e1) {
+                                result[0] = null;
+                            }
+                            application.invokeLater(new Runnable() {
+                                public void run() {
+                                    compilerManager.compile(files, new CompileStatusNotification() {
+                                        public void finished(boolean aborted, int errors, int warnings, final CompileContext compileContext) {
+                                            if (errors == 0) {
+                                                VirtualFile outputDirectory = cme.getCompilerOutputPath();
+                                                if (outputDirectory != null) {
+                                                    result[0] = findClassFile(outputDirectory, psiFile);
+                                                }
+                                            }
+                                            semaphore.release();
+                                        }
+                                    }, true);
+                                }
+                            });
+                            try {
+                                semaphore.acquire();
+                            } catch (InterruptedException e1) {
+                                result[0] = null;
+                            }
+                        }
+                        if (result[0] != null) application.invokeLater(new Runnable() {
+                            public void run() {
+                                updateToolWindowContents(project, result[0]);
+                            }
+                        });
+                    }
                 });
             }
         }
     }
 
     private VirtualFile findClassFile(final VirtualFile outputDirectory, final PsiFile psiFile) {
-        VirtualFile targetFile = null;
-        if (outputDirectory != null && psiFile instanceof PsiClassOwner) {
-            PsiClassOwner psiJavaFile = (PsiClassOwner) psiFile;
-            for (PsiClass psiClass : psiJavaFile.getClasses()) {
-                final String qualifiedName = psiClass.getQualifiedName();
-                if (qualifiedName != null) {
-                    final String path = qualifiedName.replace('.', '/') + ".class";
-                    final VirtualFile file = outputDirectory.findFileByRelativePath(path);
-                    if (file != null && file.exists()) {
-                        targetFile = file;
-                        break;
+        return ApplicationManager.getApplication().runReadAction(new Computable<VirtualFile>() {
+            public VirtualFile compute() {
+                VirtualFile targetFile = null;
+                if (outputDirectory != null && psiFile instanceof PsiClassOwner) {
+                    PsiClassOwner psiJavaFile = (PsiClassOwner) psiFile;
+                    for (PsiClass psiClass : psiJavaFile.getClasses()) {
+                        final String qualifiedName = psiClass.getQualifiedName();
+                        if (qualifiedName != null) {
+                            final String path = qualifiedName.replace('.', '/') + ".class";
+                            final VirtualFile file = outputDirectory.findFileByRelativePath(path);
+                            if (file != null && file.exists()) {
+                                targetFile = file;
+                                break;
+                            }
+                        }
                     }
                 }
+                return targetFile;
             }
-        }
-        return targetFile;
+        });
     }
 
     /**
