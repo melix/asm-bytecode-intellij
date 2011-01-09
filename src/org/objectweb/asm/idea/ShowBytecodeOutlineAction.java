@@ -41,7 +41,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.util.ASMifierClassVisitor;
 import org.objectweb.asm.util.TraceClassVisitor;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -109,7 +108,7 @@ public class ShowBytecodeOutlineAction extends AnAction {
                                 if (errors == 0) {
                                     VirtualFile outputDirectory = cme.getCompilerOutputPath();
                                     if (outputDirectory != null) {
-                                        final VirtualFile file = findClassFile(outputDirectory, psiFile, project);
+                                        final VirtualFile file = findClassFile(outputDirectory, psiFile);
                                         updateToolWindowContents(project, file);
                                     }
                                 }
@@ -122,14 +121,14 @@ public class ShowBytecodeOutlineAction extends AnAction {
         }
     }
 
-    private VirtualFile findClassFile(final VirtualFile outputDirectory, final PsiFile psiFile, final Project project) {
+    private VirtualFile findClassFile(final VirtualFile outputDirectory, final PsiFile psiFile) {
         VirtualFile targetFile = null;
         if (outputDirectory != null && psiFile instanceof PsiClassOwner) {
             PsiClassOwner psiJavaFile = (PsiClassOwner) psiFile;
             for (PsiClass psiClass : psiJavaFile.getClasses()) {
                 final String qualifiedName = psiClass.getQualifiedName();
                 if (qualifiedName != null) {
-                    final String path = qualifiedName.replace('.', File.separatorChar) + ".class";
+                    final String path = qualifiedName.replace('.', '/') + ".class";
                     final VirtualFile file = outputDirectory.findFileByRelativePath(path);
                     if (file != null && file.exists()) {
                         targetFile = file;
