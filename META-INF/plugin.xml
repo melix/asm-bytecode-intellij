@@ -1,7 +1,7 @@
 <idea-plugin version="2">
 	<name>ASM Bytecode Outline</name>
-	<description>Displays bytecode for Java classes and ASM code for generating them.</description>
-	<version>0.1</version>
+	<description>Displays bytecode for Java classes and ASMified code which will help you in your class generation.</description>
+	<version>0.2-SNAPHOT</version>
 	<vendor>Cédric Champeau</vendor>
 	<idea-version since-build="8000"/>
 
