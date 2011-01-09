@@ -56,119 +56,122 @@ import java.io.StringWriter;
  */
 public class ShowBytecodeOutlineAction extends AnAction {
 
-	@Override
-	public void update(final AnActionEvent e) {
-		final Editor editor = e.getData(PlatformDataKeys.EDITOR);
-		final VirtualFile virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
-		final Presentation presentation = e.getPresentation();
-		if (editor == null || virtualFile == null) {
-			presentation.setEnabled(false);
-			return;
-		}
-		final Project project = editor.getProject();
-		if (project == null) {
-			presentation.setEnabled(false);
-			return;
-		}
-		final PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
-		presentation.setEnabled(psiFile instanceof PsiClassOwner);
-	}
+    @Override
+    public void update(final AnActionEvent e) {
+        final Editor editor = e.getData(PlatformDataKeys.EDITOR);
+        final VirtualFile virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
+        final Presentation presentation = e.getPresentation();
+        if (editor == null || virtualFile == null) {
+            presentation.setEnabled(false);
+            return;
+        }
+        final Project project = editor.getProject();
+        if (project == null) {
+            presentation.setEnabled(false);
+            return;
+        }
+        final PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
+        presentation.setEnabled(psiFile instanceof PsiClassOwner);
+    }
 
-	public void actionPerformed(AnActionEvent e) {
-		final Editor editor = e.getData(PlatformDataKeys.EDITOR);
-		final VirtualFile virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
-		if (editor == null) return;
-		final Project project = editor.getProject();
-		if (project == null || virtualFile == null) return;
-		final PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
-		if (psiFile instanceof PsiClassOwner) {
-			final Module module = ModuleUtil.findModuleForPsiElement(psiFile);
-			final CompilerModuleExtension cme = CompilerModuleExtension.getInstance(module);
-			final VirtualFile outputDirectory = cme == null ? null : cme.getCompilerOutputPath();
-			final CompilerManager compilerManager = CompilerManager.getInstance(project);
-			final VirtualFile[] files = {virtualFile};
-			final CompileScope compileScope = compilerManager.createFilesCompileScope(files);
-			if ("class".equals(virtualFile.getExtension())) {
-				updateToolWindowContents(project, virtualFile);
-			} else {
-				ApplicationManager.getApplication().invokeLater(new Runnable() {
-					public void run() {
-						// the commented test triggers the following exception in idea
-						//					null
-						//java.lang.AssertionError
-						//	at com.intellij.openapi.project.DumbServiceImpl.waitForSmartMode(DumbServiceImpl.java:251)
-						//	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:1863)
-						//	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:1241)
-						//	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:751)
-						//if (compilerManager.isUpToDate(compileScope)) {
-						//	final VirtualFile file = findClassFile(outputDirectory, psiFile, project);
-						//	updateToolWindowContents(project, file);
-						//} else {
-						compilerManager.compile(files, new CompileStatusNotification() {
-							public void finished(boolean aborted, int errors, int warnings, final CompileContext compileContext) {
-								if (errors == 0) {
-									final VirtualFile file = findClassFile(outputDirectory, psiFile, project);
-									updateToolWindowContents(project, file);
-								}
-							}
-						}, false);
-						//}
-					}
-				});
-			}
-		}
-	}
+    public void actionPerformed(AnActionEvent e) {
+        final Editor editor = e.getData(PlatformDataKeys.EDITOR);
+        final VirtualFile virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
+        if (editor == null) return;
+        final Project project = editor.getProject();
+        if (project == null || virtualFile == null) return;
+        final PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
+        if (psiFile instanceof PsiClassOwner) {
+            final Module module = ModuleUtil.findModuleForPsiElement(psiFile);
+            final CompilerModuleExtension cme = CompilerModuleExtension.getInstance(module);
+            final CompilerManager compilerManager = CompilerManager.getInstance(project);
+            final VirtualFile[] files = {virtualFile};
+            final CompileScope compileScope = compilerManager.createFilesCompileScope(files);
+            if ("class".equals(virtualFile.getExtension())) {
+                updateToolWindowContents(project, virtualFile);
+            } else {
+                ApplicationManager.getApplication().invokeLater(new Runnable() {
+                    public void run() {
+                        VirtualFile outputDirectory = cme == null ? null : cme.getCompilerOutputPath();
+                        // the commented test triggers the following exception in idea
+                        //					null
+                        //java.lang.AssertionError
+                        //	at com.intellij.openapi.project.DumbServiceImpl.waitForSmartMode(DumbServiceImpl.java:251)
+                        //	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:1863)
+                        //	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:1241)
+                        //	at com.intellij.compiler.impl.CompileDriver.a(CompileDriver.java:751)
+                        //                        if (outputDirectory != null && false) { //compilerManager.isUpToDate(compileScope)) {
+                        //                            final VirtualFile file = findClassFile(outputDirectory, psiFile, project);
+                        //                            updateToolWindowContents(project, file);
+                        //                        } else {
+                        compilerManager.compile(files, new CompileStatusNotification() {
+                            public void finished(boolean aborted, int errors, int warnings, final CompileContext compileContext) {
+                                if (errors == 0) {
+                                    VirtualFile outputDirectory = cme.getCompilerOutputPath();
+                                    if (outputDirectory != null) {
+                                        final VirtualFile file = findClassFile(outputDirectory, psiFile, project);
+                                        updateToolWindowContents(project, file);
+                                    }
+                                }
+                            }
+                        }, false);
+                    }
+                    //}
+                });
+            }
+        }
+    }
 
-	private VirtualFile findClassFile(final VirtualFile outputDirectory, final PsiFile psiFile, final Project project) {
-		VirtualFile targetFile = null;
-		if (outputDirectory != null && psiFile instanceof PsiClassOwner) {
-			PsiClassOwner psiJavaFile = (PsiClassOwner) psiFile;
-			for (PsiClass psiClass : psiJavaFile.getClasses()) {
-				final String qualifiedName = psiClass.getQualifiedName();
-				if (qualifiedName != null) {
-					final String path = qualifiedName.replace('.', File.separatorChar) + ".class";
-					final VirtualFile file = outputDirectory.findFileByRelativePath(path);
-					if (file != null && file.exists()) {
-						targetFile = file;
-						break;
-					}
-				}
-			}
-		}
-		return targetFile;
-	}
+    private VirtualFile findClassFile(final VirtualFile outputDirectory, final PsiFile psiFile, final Project project) {
+        VirtualFile targetFile = null;
+        if (outputDirectory != null && psiFile instanceof PsiClassOwner) {
+            PsiClassOwner psiJavaFile = (PsiClassOwner) psiFile;
+            for (PsiClass psiClass : psiJavaFile.getClasses()) {
+                final String qualifiedName = psiClass.getQualifiedName();
+                if (qualifiedName != null) {
+                    final String path = qualifiedName.replace('.', File.separatorChar) + ".class";
+                    final VirtualFile file = outputDirectory.findFileByRelativePath(path);
+                    if (file != null && file.exists()) {
+                        targetFile = file;
+                        break;
+                    }
+                }
+            }
+        }
+        return targetFile;
+    }
 
-	/**
-	 * Reads the .class file, processes it through the ASM TraceVisitor and ASMifier to update the contents of the two tabs
-	 * of the tool window.
-	 *
-	 * @param project the project instance
-	 * @param file	the class file
-	 */
-	private void updateToolWindowContents(final Project project, final VirtualFile file) {
-		if (file == null) return;
-		ApplicationManager.getApplication().runWriteAction(new Runnable() {
-			public void run() {
-				StringWriter stringWriter = new StringWriter();
-				ClassVisitor visitor = new TraceClassVisitor(new PrintWriter(stringWriter));
-				ClassReader reader = null;
-				try {
-					reader = new ClassReader(file.contentsToByteArray());
-				} catch (IOException e) {
-					return;
-				}
-				reader.accept(visitor, 0);
-				BytecodeOutline.getInstance(project).setCode(stringWriter.toString());
-				stringWriter.getBuffer().setLength(0);
-				visitor = new ASMifierClassVisitor(new PrintWriter(stringWriter));
-				reader.accept(visitor, 0);
-				final BytecodeASMified asmified = BytecodeASMified.getInstance(project);
-				PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText("asm.java", stringWriter.toString());
-				CodeStyleManager.getInstance(project).reformat(psiFile);
-				asmified.setCode(psiFile.getText());
-				ToolWindowManager.getInstance(project).getToolWindow("ASM").activate(null);
-			}
-		});
-	}
+    /**
+     * Reads the .class file, processes it through the ASM TraceVisitor and ASMifier to update the contents of the two tabs
+     * of the tool window.
+     *
+     * @param project the project instance
+     * @param file    the class file
+     */
+    private void updateToolWindowContents(final Project project, final VirtualFile file) {
+        if (file == null) return;
+        ApplicationManager.getApplication().runWriteAction(new Runnable() {
+            public void run() {
+                StringWriter stringWriter = new StringWriter();
+                ClassVisitor visitor = new TraceClassVisitor(new PrintWriter(stringWriter));
+                ClassReader reader = null;
+                try {
+                    reader = new ClassReader(file.contentsToByteArray());
+                } catch (IOException e) {
+                    return;
+                }
+                reader.accept(visitor, 0);
+                BytecodeOutline.getInstance(project).setCode(stringWriter.toString());
+                stringWriter.getBuffer().setLength(0);
+                visitor = new ASMifierClassVisitor(new PrintWriter(stringWriter));
+                reader.accept(visitor, 0);
+                final BytecodeASMified asmified = BytecodeASMified.getInstance(project);
+                PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText("asm.java", stringWriter.toString());
+                CodeStyleManager.getInstance(project).reformat(psiFile);
+                asmified.setCode(psiFile.getText());
+                ToolWindowManager.getInstance(project).getToolWindow("ASM").activate(null);
+            }
+        });
+    }
 
 }
