@@ -47,9 +47,6 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 
 
@@ -105,9 +102,13 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 application.executeOnPooledThread(new Runnable() {
                     public void run() {
                         final VirtualFile[] result = {null};
-                        VirtualFile outputDirectory = cme == null ? null : cme.getCompilerOutputPath();
-                        if (outputDirectory != null && compilerManager.isUpToDate(compileScope)) {
-                            result[0] = findClassFile(outputDirectory, psiFile);
+                        VirtualFile[] outputDirectories = cme == null ? null : cme.getOutputRoots(true);
+                        if (outputDirectories != null && compilerManager.isUpToDate(compileScope)) {
+                            result[0] = findClassFile(outputDirectories, psiFile);
+                            if (result[0]==null && cme!=null) {
+                                // check if file is in test output directory
+
+                            }
                         } else {
                             final Semaphore semaphore = new Semaphore(1);
                             try {
@@ -120,9 +121,9 @@ public class ShowBytecodeOutlineAction extends AnAction {
                                     compilerManager.compile(files, new CompileStatusNotification() {
                                         public void finished(boolean aborted, int errors, int warnings, final CompileContext compileContext) {
                                             if (errors == 0) {
-                                                VirtualFile outputDirectory = cme.getCompilerOutputPath();
-                                                if (outputDirectory != null) {
-                                                    result[0] = findClassFile(outputDirectory, psiFile);
+                                                VirtualFile[] outputDirectories = cme.getOutputRoots(true);
+                                                if (outputDirectories != null) {
+                                                    result[0] = findClassFile(outputDirectories, psiFile);
                                                 }
                                             }
                                             semaphore.release();
@@ -147,21 +148,24 @@ public class ShowBytecodeOutlineAction extends AnAction {
         }
     }
 
-    private VirtualFile findClassFile(final VirtualFile outputDirectory, final PsiFile psiFile) {
+    private VirtualFile findClassFile(final VirtualFile[] outputDirectories, final PsiFile psiFile) {
         return ApplicationManager.getApplication().runReadAction(new Computable<VirtualFile>() {
             public VirtualFile compute() {
                 VirtualFile targetFile = null;
-                if (outputDirectory != null && psiFile instanceof PsiClassOwner) {
+                if (outputDirectories != null && psiFile instanceof PsiClassOwner) {
                     PsiClassOwner psiJavaFile = (PsiClassOwner) psiFile;
                     for (PsiClass psiClass : psiJavaFile.getClasses()) {
                         final String qualifiedName = psiClass.getQualifiedName();
                         if (qualifiedName != null) {
                             final String path = qualifiedName.replace('.', '/') + ".class";
-                            final VirtualFile file = outputDirectory.findFileByRelativePath(path);
-                            if (file != null && file.exists()) {
-                                targetFile = file;
-                                break;
+                            for (VirtualFile outputDirectory : outputDirectories) {
+                                final VirtualFile file = outputDirectory.findFileByRelativePath(path);
+                                if (file != null && file.exists()) {
+                                    targetFile = file;
+                                    break;
+                                }
                             }
+                            if (targetFile!=null) break;
                         }
                     }
                 }
@@ -171,8 +175,8 @@ public class ShowBytecodeOutlineAction extends AnAction {
     }
 
     /**
-     * Reads the .class file, processes it through the ASM TraceVisitor and ASMifier to update the contents of the two tabs
-     * of the tool window.
+     * Reads the .class file, processes it through the ASM TraceVisitor and ASMifier to update the contents of the two
+     * tabs of the tool window.
      *
      * @param project the project instance
      * @param file    the class file

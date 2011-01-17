@@ -1,17 +1,19 @@
 <idea-plugin version="2">
 	<name>ASM Bytecode Outline</name>
 	<description>Displays bytecode for Java classes and ASMified code which will help you in your class generation.</description>
-	<version>0.2</version>
+	<version>0.3</version>
 	<vendor>Cédric Champeau</vendor>
 	<idea-version since-build="8000"/>
 
-    <change-notes>
-        Version 0.2
-            - Fixed .class files not being found under Windows
-            - Fixed tool window not opening if output directory doesn't exist
-            - Added shortcut in "Code" menu
-            - Do not compile file if up-to-date
-    </change-notes>
+    <change-notes><![CDATA[
+        <h1>Version 0.2</h1>
+        <ul>
+            <li>Fixed .class files not being found under Windows</li>
+            <li>Fixed tool window not opening if output directory doesn't exist</li>
+            <li>Added shortcut in "Code" menu</li>
+            <li>Do not compile file if up-to-date</li>
+        </ul>
+    ]]></change-notes>
 
 	<application-components>
 	</application-components>
