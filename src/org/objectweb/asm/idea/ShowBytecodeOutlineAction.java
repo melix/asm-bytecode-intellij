@@ -59,6 +59,8 @@ import java.util.concurrent.Semaphore;
  */
 public class ShowBytecodeOutlineAction extends AnAction {
 
+    private final static String NO_CLASS_FOUND = "// couldn't generate bytecode view, no .class file found";
+
     @Override
     public void update(final AnActionEvent e) {
         final Editor editor = e.getData(PlatformDataKeys.EDITOR);
@@ -137,7 +139,7 @@ public class ShowBytecodeOutlineAction extends AnAction {
                                 result[0] = null;
                             }
                         }
-                        if (result[0] != null) application.invokeLater(new Runnable() {
+                        application.invokeLater(new Runnable() {
                             public void run() {
                                 updateToolWindowContents(project, result[0]);
                             }
@@ -182,9 +184,14 @@ public class ShowBytecodeOutlineAction extends AnAction {
      * @param file    the class file
      */
     private void updateToolWindowContents(final Project project, final VirtualFile file) {
-        if (file == null) return;
         ApplicationManager.getApplication().runWriteAction(new Runnable() {
             public void run() {
+                if (file==null) {
+                    BytecodeOutline.getInstance(project).setCode(NO_CLASS_FOUND);
+                    BytecodeASMified.getInstance(project).setCode(NO_CLASS_FOUND);
+                    ToolWindowManager.getInstance(project).getToolWindow("ASM").activate(null);
+                    return;
+                }
                 StringWriter stringWriter = new StringWriter();
                 ClassVisitor visitor = new TraceClassVisitor(new PrintWriter(stringWriter));
                 ClassReader reader = null;
