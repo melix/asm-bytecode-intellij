@@ -6,7 +6,12 @@
 	<idea-version since-build="8000"/>
 
     <change-notes><![CDATA[
-        <h1>Version 0.2</h1>
+        <b>Version 0.3</b>
+        <ul>
+            <li>Search in every output directory, including test files</li>
+            <li>Support for Groovy @groovyx.ast.bytecode.Bytecode annotation</li>
+        </ul>
+        <b>Version 0.2</b>
         <ul>
             <li>Fixed .class files not being found under Windows</li>
             <li>Fixed tool window not opening if output directory doesn't exist</li>
@@ -37,5 +42,7 @@
 						serviceImplementation="org.objectweb.asm.idea.BytecodeOutline"/>
 		<projectService serviceInterface="org.objectweb.asm.idea.BytecodeASMified"
 						serviceImplementation="org.objectweb.asm.idea.BytecodeASMified"/>
+        <projectService serviceInterface="org.objectweb.asm.idea.GroovifiedView"
+                        serviceImplementation="org.objectweb.asm.idea.GroovifiedView"/>
 	</extensions>
 </idea-plugin>

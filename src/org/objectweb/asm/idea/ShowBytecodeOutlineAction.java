@@ -39,6 +39,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
+import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.util.ASMifierClassVisitor;
@@ -189,6 +190,7 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 if (file==null) {
                     BytecodeOutline.getInstance(project).setCode(NO_CLASS_FOUND);
                     BytecodeASMified.getInstance(project).setCode(NO_CLASS_FOUND);
+                    GroovifiedView.getInstance(project).setCode(NO_CLASS_FOUND);
                     ToolWindowManager.getInstance(project).getToolWindow("ASM").activate(null);
                     return;
                 }
@@ -200,9 +202,12 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 } catch (IOException e) {
                     return;
                 }
-                reader.accept(visitor, 0);
+                reader.accept(visitor, new Attribute[0], 0);
                 BytecodeOutline.getInstance(project).setCode(stringWriter.toString());
                 stringWriter.getBuffer().setLength(0);
+                visitor = new GroovifiedTraceVisitor(new PrintWriter(stringWriter));
+                reader.accept(visitor, 0);
+                GroovifiedView.getInstance(project).setCode(stringWriter.toString());
                 visitor = new ASMifierClassVisitor(new PrintWriter(stringWriter));
                 reader.accept(visitor, 0);
                 final BytecodeASMified asmified = BytecodeASMified.getInstance(project);
