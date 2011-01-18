@@ -58,7 +58,7 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             buf.append(tab).append("// DEPRECATED\n");
         }
         buf.append(tab).append("// access flags 0x").append(Integer.toHexString(access).toUpperCase()).append('\n');
-        buf.append(tab).append("@groovyx.ast.transform.Bytecode\n");
+        buf.append(tab).append("@groovyx.ast.bytecode.Bytecode\n");
         Method method = new Method(name, desc);
 
         buf.append(tab);
