@@ -24,12 +24,11 @@ package org.objectweb.asm.idea;
  * Time: 22:07
  */
 
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import org.objectweb.asm.*;
+import org.objectweb.asm.commons.EmptyVisitor;
 import org.objectweb.asm.commons.Method;
 import org.objectweb.asm.util.AbstractVisitor;
+import org.objectweb.asm.util.TraceAnnotationVisitor;
 import org.objectweb.asm.util.TraceClassVisitor;
 import org.objectweb.asm.util.TraceMethodVisitor;
 
@@ -144,6 +143,8 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
     }
 
     protected static class GroovyTraceMethodVisitor extends TraceMethodVisitor {
+
+        private static final EmptyVisitor EMPTY_ANNOTATION_VISITOR = new EmptyVisitor();
 
         @Override
         public void visitFrame(final int type, final int nLocal, final Object[] local, final int nStack, final Object[] stack) {
@@ -260,6 +261,21 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             if (mv != null) {
                 mv.visitJumpInsn(opcode, label);
             }
+        }
+
+        @Override
+        public AnnotationVisitor visitParameterAnnotation(final int parameter, final String desc, final boolean visible) {
+            return EMPTY_ANNOTATION_VISITOR;
+        }
+
+        @Override
+        public AnnotationVisitor visitAnnotation(final String desc, final boolean visible) {
+            return EMPTY_ANNOTATION_VISITOR;
+        }
+
+        @Override
+        public AnnotationVisitor visitAnnotationDefault() {
+            return EMPTY_ANNOTATION_VISITOR;
         }
 
         /**
@@ -410,6 +426,16 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             if (mv != null) {
                 mv.visitTryCatchBlock(start, end, handler, type);
             }
+        }
+
+        @Override
+        protected TraceAnnotationVisitor createTraceAnnotationVisitor() {
+            return new TraceAnnotationVisitor() {
+                @Override
+                public AnnotationVisitor visitAnnotation(final String name, final String desc) {
+                    return EMPTY_ANNOTATION_VISITOR;
+                }
+            };
         }
 
         @Override
