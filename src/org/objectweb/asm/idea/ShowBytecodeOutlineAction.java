@@ -206,6 +206,7 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 visitor = new GroovifiedTraceVisitor(new PrintWriter(stringWriter));
                 reader.accept(visitor, 0);
                 GroovifiedView.getInstance(project).setCode(file,stringWriter.toString());
+                stringWriter.getBuffer().setLength(0);
                 visitor = new ASMifierClassVisitor(new PrintWriter(stringWriter));
                 reader.accept(visitor, ClassReader.SKIP_FRAMES|ClassReader.SKIP_DEBUG|ClassReader.SKIP_CODE);
                 final BytecodeASMified asmified = BytecodeASMified.getInstance(project);
