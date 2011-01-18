@@ -11,6 +11,8 @@
             <li>Add diff view popup which shows the differences with the previous version of bytecode</li>
             <li>Search in every output directory, including test files</li>
             <li>Support for Groovy @groovyx.ast.bytecode.Bytecode annotation</li>
+            <li>Configuration of ASM ClassReader flags</li>
+            <li>Configuration of Groovy code style</li>
         </ul>
         <b>Version 0.2</b>
         <ul>
@@ -22,10 +24,14 @@
     ]]></change-notes>
 
 	<application-components>
+
 	</application-components>
 
 	<project-components>
-	</project-components>
+        <component>
+            <implementation-class>org.objectweb.asm.idea.config.ASMPluginComponent</implementation-class>
+        </component>
+    </project-components>
 
 	<actions>
 		<action id="showBytecodeOutline" class="org.objectweb.asm.idea.ShowBytecodeOutlineAction"

@@ -32,19 +32,26 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtil;
+import com.intellij.openapi.options.Configurable;
+import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.CompilerModuleExtension;
 import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
+import org.jetbrains.annotations.Nls;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.idea.config.ASMPluginComponent;
+import org.objectweb.asm.idea.config.ASMPluginConfiguration;
 import org.objectweb.asm.util.ASMifierClassVisitor;
 import org.objectweb.asm.util.TraceClassVisitor;
 
+import javax.swing.*;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -200,15 +207,22 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 } catch (IOException e) {
                     return;
                 }
-                reader.accept(visitor, new Attribute[0], 0);
+                int flags = 0;
+                final ASMPluginComponent config = project.getComponent(ASMPluginComponent.class);
+                if (config.isSkipDebug()) flags = flags | ClassReader.SKIP_DEBUG;
+                if (config.isSkipFrames()) flags = flags | ClassReader.SKIP_FRAMES;
+                if (config.isSkipCode()) flags = flags | ClassReader.EXPAND_FRAMES;
+                if (config.isSkipCode()) flags = flags | ClassReader.SKIP_CODE;
+
+                reader.accept(visitor, flags);
                 BytecodeOutline.getInstance(project).setCode(file,stringWriter.toString());
                 stringWriter.getBuffer().setLength(0);
                 visitor = new GroovifiedTraceVisitor(new PrintWriter(stringWriter));
-                reader.accept(visitor, 0);
+                reader.accept(visitor, ClassReader.SKIP_FRAMES|ClassReader.SKIP_DEBUG);
                 GroovifiedView.getInstance(project).setCode(file,stringWriter.toString());
                 stringWriter.getBuffer().setLength(0);
                 visitor = new ASMifierClassVisitor(new PrintWriter(stringWriter));
-                reader.accept(visitor, ClassReader.SKIP_FRAMES|ClassReader.SKIP_DEBUG|ClassReader.SKIP_CODE);
+                reader.accept(visitor, flags);
                 final BytecodeASMified asmified = BytecodeASMified.getInstance(project);
                 PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText("asm.java", stringWriter.toString());
                 CodeStyleManager.getInstance(project).reformat(psiFile);
@@ -217,5 +231,4 @@ public class ShowBytecodeOutlineAction extends AnAction {
             }
         });
     }
-
 }
