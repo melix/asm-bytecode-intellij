@@ -8,6 +8,7 @@
     <change-notes><![CDATA[
         <b>Version 0.3</b>
         <ul>
+            <li>Add diff view popup which shows the differences with the previous version of bytecode</li>
             <li>Search in every output directory, including test files</li>
             <li>Support for Groovy @groovyx.ast.bytecode.Bytecode annotation</li>
         </ul>

@@ -60,8 +60,6 @@ import java.util.concurrent.Semaphore;
  */
 public class ShowBytecodeOutlineAction extends AnAction {
 
-    private final static String NO_CLASS_FOUND = "// couldn't generate bytecode view, no .class file found";
-
     @Override
     public void update(final AnActionEvent e) {
         final Editor editor = e.getData(PlatformDataKeys.EDITOR);
@@ -188,9 +186,9 @@ public class ShowBytecodeOutlineAction extends AnAction {
         ApplicationManager.getApplication().runWriteAction(new Runnable() {
             public void run() {
                 if (file==null) {
-                    BytecodeOutline.getInstance(project).setCode(NO_CLASS_FOUND);
-                    BytecodeASMified.getInstance(project).setCode(NO_CLASS_FOUND);
-                    GroovifiedView.getInstance(project).setCode(NO_CLASS_FOUND);
+                    BytecodeOutline.getInstance(project).setCode(file, Constants.NO_CLASS_FOUND);
+                    BytecodeASMified.getInstance(project).setCode(file, Constants.NO_CLASS_FOUND);
+                    GroovifiedView.getInstance(project).setCode(file, Constants.NO_CLASS_FOUND);
                     ToolWindowManager.getInstance(project).getToolWindow("ASM").activate(null);
                     return;
                 }
@@ -203,17 +201,17 @@ public class ShowBytecodeOutlineAction extends AnAction {
                     return;
                 }
                 reader.accept(visitor, new Attribute[0], 0);
-                BytecodeOutline.getInstance(project).setCode(stringWriter.toString());
+                BytecodeOutline.getInstance(project).setCode(file,stringWriter.toString());
                 stringWriter.getBuffer().setLength(0);
                 visitor = new GroovifiedTraceVisitor(new PrintWriter(stringWriter));
                 reader.accept(visitor, 0);
-                GroovifiedView.getInstance(project).setCode(stringWriter.toString());
+                GroovifiedView.getInstance(project).setCode(file,stringWriter.toString());
                 visitor = new ASMifierClassVisitor(new PrintWriter(stringWriter));
-                reader.accept(visitor, ClassReader.SKIP_FRAMES|ClassReader.SKIP_DEBUG);
+                reader.accept(visitor, ClassReader.SKIP_FRAMES|ClassReader.SKIP_DEBUG|ClassReader.SKIP_CODE);
                 final BytecodeASMified asmified = BytecodeASMified.getInstance(project);
                 PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText("asm.java", stringWriter.toString());
                 CodeStyleManager.getInstance(project).reformat(psiFile);
-                asmified.setCode(psiFile.getText());
+                asmified.setCode(file,psiFile.getText());
                 ToolWindowManager.getInstance(project).getToolWindow("ASM").activate(null);
             }
         });
