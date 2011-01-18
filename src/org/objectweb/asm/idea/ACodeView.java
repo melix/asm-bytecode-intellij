@@ -25,18 +25,24 @@ package org.objectweb.asm.idea;
  */
 
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.diff.*;
+import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.diff.DiffContent;
+import com.intellij.openapi.diff.DiffManager;
+import com.intellij.openapi.diff.DiffRequest;
+import com.intellij.openapi.diff.SimpleContent;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileTypes.FileTypeManager;
 import com.intellij.openapi.keymap.KeymapManager;
-import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.SimpleToolWindowPanel;
+import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiFileFactory;
+import com.intellij.ui.PopupHandler;
 
 import javax.swing.*;
 import java.awt.*;
@@ -47,7 +53,7 @@ import java.awt.event.MouseEvent;
 /**
  * Base class for editors which displays bytecode or ASMified code.
  */
-public class ACodeView extends JPanel implements Disposable {
+public class ACodeView extends SimpleToolWindowPanel implements Disposable {
     private static final String DIFF_WINDOW_TITLE = "Show differences from previous class contents";
     private static final String[] DIFF_TITLES = {"Previous version", "Current version"};
     protected final Project project;
@@ -64,7 +70,7 @@ public class ACodeView extends JPanel implements Disposable {
     private VirtualFile previousFile;
 
     public ACodeView(final ToolWindowManager toolWindowManager, KeymapManager keymapManager, final Project project, final String fileExtension) {
-        super(new BorderLayout());
+        super(true, true);
         this.toolWindowManager = toolWindowManager;
         this.keymapManager = keymapManager;
         this.project = project;
@@ -83,21 +89,28 @@ public class ACodeView extends JPanel implements Disposable {
 
         final JComponent editorComponent = editor.getComponent();
         add(editorComponent);
-        JPopupMenu menu = new JPopupMenu();
-        menu.add(createShowDiffAction());
-        editor.getContentComponent().addMouseListener(new PopupListener(menu));
+        final AnAction diffAction = createShowDiffAction();
+        DefaultActionGroup group = new DefaultActionGroup();
+        group.add(diffAction);
+        final ActionManager actionManager = ActionManager.getInstance();
+        final ActionToolbar actionToolBar = actionManager.createActionToolbar("ASM", group, true);
+        final JPanel buttonsPanel = new JPanel(new BorderLayout());
+        buttonsPanel.add(actionToolBar.getComponent(), BorderLayout.CENTER);
+        PopupHandler.installPopupHandler(editor.getContentComponent(), group, "ASM", actionManager);
+        setToolbar(buttonsPanel);
     }
 
     public void setCode(final VirtualFile file, final String code) {
         final String text = document.getText();
-        if (previousFile == null || file==null || previousFile.getPath().equals(file.getPath()) && !Constants.NO_CLASS_FOUND.equals(text)) {
-            if (file!=null) previousCode = text;
+        if (previousFile == null || file == null || previousFile.getPath().equals(file.getPath()) && !Constants.NO_CLASS_FOUND.equals(text)) {
+            if (file != null) previousCode = text;
         } else if (!previousFile.getPath().equals(file.getPath())) {
             previousCode = ""; // reset previous code
         }
         document.setText(code);
-        if (file!=null) previousFile = file;
+        if (file != null) previousFile = file;
     }
+
 
 
     public void dispose() {
@@ -108,56 +121,53 @@ public class ACodeView extends JPanel implements Disposable {
         }
     }
 
-    private Action createShowDiffAction() {
-        Action result = new AbstractAction("Show diff with previous version") {
-            public void actionPerformed(final ActionEvent e) {
-                DiffManager.getInstance().getDiffTool().show(new DiffRequest(project) {
-                    @Override
-                    public DiffContent[] getContents() {
-                        // there must be a simpler way to obtain the file type
-                        PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText("asm."+extension, "");
-                        final DiffContent currentContent = previousFile == null ? new SimpleContent("") : new SimpleContent(document.getText(), psiFile.getFileType());
-                        final DiffContent oldContent = new SimpleContent(previousCode==null?"":previousCode, psiFile.getFileType());
-                        return new DiffContent[]{
-                                oldContent,
-                                currentContent
-                        };
-                    }
-
-                    @Override
-                    public String[] getContentTitles() {
-                        return DIFF_TITLES;
-                    }
-
-                    @Override
-                    public String getWindowTitle() {
-                        return DIFF_WINDOW_TITLE;
-                    }
-                });
-            }
-        };
-        return result;
+    private AnAction createShowDiffAction() {
+        return new ShowDiffAction();
     }
 
-    class PopupListener extends MouseAdapter {
-        JPopupMenu popup;
+    private class ShowDiffAction extends AnAction {
 
-        PopupListener(JPopupMenu popupMenu) {
-            popup = popupMenu;
+        public ShowDiffAction() {
+            super("Show differences",
+                    "Shows differences from the previous version of bytecode for this file",
+                    IconLoader.getIcon("/actions/diffWithCurrent.png"));
         }
 
-        public void mousePressed(MouseEvent e) {
-            maybeShowPopup(e);
+        @Override
+        public void update(final AnActionEvent e) {
+            e.getPresentation().setEnabled(!"".equals(previousCode) && (previousFile!=null));
         }
 
-        public void mouseReleased(MouseEvent e) {
-            maybeShowPopup(e);
+        @Override
+        public boolean displayTextInToolbar() {
+            return true;
         }
 
-        private void maybeShowPopup(MouseEvent e) {
-            if (e.isPopupTrigger()) {
-                popup.show(e.getComponent(), e.getX(), e.getY());
-            }
+        @Override
+        public void actionPerformed(final AnActionEvent e) {
+            DiffManager.getInstance().getDiffTool().show(new DiffRequest(project) {
+                @Override
+                public DiffContent[] getContents() {
+                    // there must be a simpler way to obtain the file type
+                    PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText("asm." + extension, "");
+                    final DiffContent currentContent = previousFile == null ? new SimpleContent("") : new SimpleContent(document.getText(), psiFile.getFileType());
+                    final DiffContent oldContent = new SimpleContent(previousCode == null ? "" : previousCode, psiFile.getFileType());
+                    return new DiffContent[]{
+                            oldContent,
+                            currentContent
+                    };
+                }
+
+                @Override
+                public String[] getContentTitles() {
+                    return DIFF_TITLES;
+                }
+
+                @Override
+                public String getWindowTitle() {
+                    return DIFF_WINDOW_TITLE;
+                }
+            });
         }
     }
 }
