@@ -35,6 +35,7 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.fileTypes.FileTypeManager;
 import com.intellij.openapi.keymap.KeymapManager;
+import com.intellij.openapi.options.ShowSettingsUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.SimpleToolWindowPanel;
 import com.intellij.openapi.util.IconLoader;
@@ -43,6 +44,7 @@ import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiFileFactory;
 import com.intellij.ui.PopupHandler;
+import org.objectweb.asm.idea.config.ASMPluginComponent;
 
 import javax.swing.*;
 import java.awt.*;
@@ -92,6 +94,8 @@ public class ACodeView extends SimpleToolWindowPanel implements Disposable {
         final AnAction diffAction = createShowDiffAction();
         DefaultActionGroup group = new DefaultActionGroup();
         group.add(diffAction);
+        group.add(new ShowSettingsAction());
+        
         final ActionManager actionManager = ActionManager.getInstance();
         final ActionToolbar actionToolBar = actionManager.createActionToolbar("ASM", group, true);
         final JPanel buttonsPanel = new JPanel(new BorderLayout());
@@ -125,6 +129,22 @@ public class ACodeView extends SimpleToolWindowPanel implements Disposable {
         return new ShowDiffAction();
     }
 
+    private class ShowSettingsAction extends AnAction {
+
+        private ShowSettingsAction() {
+            super("Settings", "Show settings for ASM plugin", IconLoader.getIcon("/general/projectSettings.png"));
+        }
+
+        @Override
+        public boolean displayTextInToolbar() {
+            return true;
+        }
+
+        @Override
+        public void actionPerformed(final AnActionEvent e) {
+            ShowSettingsUtil.getInstance().showSettingsDialog(project, project.getComponent(ASMPluginComponent.class));
+        }
+    }
     private class ShowDiffAction extends AnAction {
 
         public ShowDiffAction() {
