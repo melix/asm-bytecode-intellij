@@ -27,6 +27,7 @@ package org.objectweb.asm.idea;
 import org.objectweb.asm.*;
 import org.objectweb.asm.commons.EmptyVisitor;
 import org.objectweb.asm.commons.Method;
+import org.objectweb.asm.idea.config.GroovyCodeStyle;
 import org.objectweb.asm.util.AbstractVisitor;
 import org.objectweb.asm.util.TraceAnnotationVisitor;
 import org.objectweb.asm.util.TraceClassVisitor;
@@ -40,13 +41,39 @@ import java.io.PrintWriter;
  */
 public class GroovifiedTraceVisitor extends TraceClassVisitor {
 
-    public GroovifiedTraceVisitor(PrintWriter pw) {
+    private final static String[] GROOVY_DEFAULT_IMPORTS = {
+            "java.io.",
+            "java.lang.",
+            "java.net.",
+            "java.util.",
+            "groovy.lang.",
+            "groovy.util."
+    };
+
+    private final static String[] ATYPES;
+
+    static {
+        ATYPES = new String[12];
+        String s = "boolean,char,float,double,byte,short,int,long,";
+        int j = 0;
+        int i = 4;
+        int l;
+        while ((l = s.indexOf(',', j)) > 0) {
+            ATYPES[i++] = s.substring(j, l);
+            j = l + 1;
+        }
+    }
+
+    private final GroovyCodeStyle codeStyle;
+
+    public GroovifiedTraceVisitor(final GroovyCodeStyle codeStyle, PrintWriter pw) {
         super(pw);
+        this.codeStyle = codeStyle;
     }
 
     @Override
     protected TraceMethodVisitor createTraceMethodVisitor() {
-        return new GroovyTraceMethodVisitor();
+        return new GroovyTraceMethodVisitor(codeStyle);
     }
 
     @Override
@@ -54,9 +81,8 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         buf.setLength(0);
         buf.append('\n');
         if ((access & Opcodes.ACC_DEPRECATED) != 0) {
-            buf.append(tab).append("// DEPRECATED\n");
+            buf.append(tab).append("// @Deprecated\n");
         }
-        buf.append(tab).append("// access flags 0x").append(Integer.toHexString(access).toUpperCase()).append('\n');
         buf.append(tab).append("@groovyx.ast.bytecode.Bytecode\n");
         Method method = new Method(name, desc);
 
@@ -65,7 +91,7 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         if ((access & Opcodes.ACC_NATIVE) != 0) {
             buf.append("native ");
         }
-        buf.append(method.getReturnType().getClassName());
+        buf.append(groovyClassName(method.getReturnType().getClassName()));
         buf.append(' ');
         buf.append(name);
         buf.append('(');
@@ -73,7 +99,7 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         char arg = 'a';
         for (int j = 0, argumentTypesLength = argumentTypes.length; j < argumentTypesLength; j++) {
             final Type type = argumentTypes[j];
-            buf.append(type.getClassName());
+            buf.append(groovyClassName(type.getClassName()));
             buf.append(' ');
             buf.append(arg);
             if (j < argumentTypesLength - 1) buf.append(',');
@@ -142,9 +168,26 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         }
     }
 
+    private static String groovyClassName(String className) {
+        for (String anImport : GROOVY_DEFAULT_IMPORTS) {
+            if (className.startsWith(anImport)) return className.substring(anImport.length());
+        }
+        return className;
+    }
+
     protected static class GroovyTraceMethodVisitor extends TraceMethodVisitor {
 
+        private final GroovyCodeStyle codeStyle;
+
         private static final EmptyVisitor EMPTY_ANNOTATION_VISITOR = new EmptyVisitor();
+
+        public GroovyTraceMethodVisitor(final GroovyCodeStyle codeStyle) {
+            this.codeStyle = codeStyle;
+        }
+
+        private boolean isLegacy() {
+            return codeStyle == GroovyCodeStyle.LEGACY;
+        }
 
         @Override
         public void visitFrame(final int type, final int nLocal, final Object[] local, final int nStack, final Object[] stack) {
@@ -172,7 +215,7 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
                     .append(OPCODES[opcode].toLowerCase())
                     .append(' ')
                     .append(opcode == Opcodes.NEWARRAY
-                            ? TYPES[operand]
+                            ? (isLegacy() ? TYPES[operand] : ATYPES[operand])
                             : Integer.toString(operand))
                     .append('\n');
             text.add(buf.toString());
@@ -199,10 +242,17 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         public void visitTypeInsn(final int opcode, final String type) {
             buf.setLength(0);
             final String opcodeStr = OPCODES[opcode];
-            buf.append(tab2).append("NEW".equals(opcodeStr) ? "_new" : "INSTANCEOF".equals(opcodeStr) ? "_instanceof" : opcodeStr.toLowerCase()).append(' ');
-            buf.append('\'');
-            appendDescriptor(INTERNAL_NAME, type);
-            buf.append('\'');
+            buf.append(tab2).append("NEW".equals(opcodeStr) ?
+                    (isLegacy() ? "_new" : "newobject")
+                    : "INSTANCEOF".equals(opcodeStr) ?
+                    (isLegacy() ? "_instanceof" : "instance of:") : opcodeStr.toLowerCase()).append(' ');
+            if (isLegacy()) {
+                buf.append('\'');
+                appendDescriptor(INTERNAL_NAME, type);
+                buf.append('\'');
+            } else {
+                buf.append(groovyClassName(type.replace('/', '.')));
+            }
             buf.append('\n');
             text.add(buf.toString());
 
@@ -218,11 +268,19 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
                 final String desc) {
             buf.setLength(0);
             buf.append(tab2).append(OPCODES[opcode].toLowerCase()).append(' ');
-            buf.append('\'');
-            appendDescriptor(INTERNAL_NAME, owner);
-            buf.append('.').append(name).append("','");
-            appendDescriptor(FIELD_DESCRIPTOR, desc);
-            buf.append('\'');
+            if (isLegacy()) {
+                buf.append('\'');
+                appendDescriptor(INTERNAL_NAME, owner);
+                buf.append('.').append(name).append("','");
+                appendDescriptor(FIELD_DESCRIPTOR, desc);
+                buf.append('\'');
+            } else {
+                buf.append(groovyClassName(Type.getObjectType(owner).getClassName()));
+                buf.append('.');
+                buf.append(name);
+                buf.append(" >> ");
+                buf.append(groovyClassName(Type.getReturnType(desc).getClassName()));
+            }
             buf.append('\n');
             text.add(buf.toString());
 
@@ -238,11 +296,28 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
                 final String desc) {
             buf.setLength(0);
             buf.append(tab2).append(OPCODES[opcode].toLowerCase()).append(' ');
-            buf.append('\'');
-            appendDescriptor(INTERNAL_NAME, owner);
-            buf.append('.').append(name).append("','");
-            appendDescriptor(METHOD_DESCRIPTOR, desc);
-            buf.append('\'');
+            if (isLegacy()) {
+                buf.append('\'');
+                appendDescriptor(INTERNAL_NAME, owner);
+                buf.append('.').append(name).append("','");
+                appendDescriptor(METHOD_DESCRIPTOR, desc);
+                buf.append('\'');
+            } else {
+                buf.append(groovyClassName(Type.getObjectType(owner).getClassName()));
+                buf.append('.');
+                if ("<init>".equals(name)) buf.append('"');
+                buf.append(name);
+                if ("<init>".equals(name)) buf.append('"');
+                buf.append('(');
+                final Type[] types = Type.getArgumentTypes(desc);
+                for (int i = 0; i < types.length; i++) {
+                    Type type = types[i];
+                    buf.append(groovyClassName(type.getClassName()));
+                    if (i < types.length - 1) buf.append(',');
+                }
+                buf.append(") >> ");
+                buf.append(groovyClassName(Type.getReturnType(desc).getClassName()));
+            }
             buf.append('\n');
             text.add(buf.toString());
 
@@ -253,7 +328,10 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
 
         public void visitJumpInsn(final int opcode, final Label label) {
             buf.setLength(0);
-            buf.append(tab2).append(OPCODES[opcode].equals("GOTO") ? "_goto" : OPCODES[opcode].toLowerCase()).append(' ');
+            buf.append(tab2).append(
+                    OPCODES[opcode].equals("GOTO") ?
+                            (isLegacy() ? "_goto" : "go to:")
+                            : OPCODES[opcode].toLowerCase()).append(' ');
             appendLabel(label);
             buf.append('\n');
             text.add(buf.toString());
@@ -297,6 +375,7 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             buf.setLength(0);
             buf.append(ltab);
             appendLabel(label);
+            if (codeStyle == GroovyCodeStyle.GROOVIFIER_0_2_0) buf.append(':');
             buf.append('\n');
             text.add(buf.toString());
 
@@ -334,7 +413,7 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             buf.append(tab2)
                     .append("iinc ")
                     .append(var)
-                    .append(' ')
+                    .append(',')
                     .append(increment)
                     .append('\n');
             text.add(buf.toString());
@@ -390,9 +469,14 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         public void visitMultiANewArrayInsn(final String desc, final int dims) {
             buf.setLength(0);
             buf.append(tab2).append("multianewarray ");
-            buf.append('\'');
-            appendDescriptor(FIELD_DESCRIPTOR, desc);
-            buf.append("\',").append(dims).append('\n');
+            if (isLegacy()) {
+                buf.append('\'');
+                appendDescriptor(FIELD_DESCRIPTOR, desc);
+                buf.append("\'");
+            } else {
+                buf.append(groovyClassName(Type.getType(desc).getClassName()));
+            }
+            buf.append(',').append(dims).append('\n');
             text.add(buf.toString());
 
             if (mv != null) {
@@ -414,9 +498,13 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             appendLabel(handler);
             buf.append(',');
             if (type != null) {
-                buf.append('\'');
-                appendDescriptor(INTERNAL_NAME, type);
-                buf.append('\'');
+                if (isLegacy()) {
+                    buf.append('\'');
+                    appendDescriptor(INTERNAL_NAME, type);
+                    buf.append('\'');
+                } else {
+                    buf.append(groovyClassName(type.replace('/', '.')));
+                }
             } else {
                 appendDescriptor(INTERNAL_NAME, type);
             }
