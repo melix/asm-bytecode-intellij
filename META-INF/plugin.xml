@@ -3,9 +3,13 @@
 	<description>Displays bytecode for Java classes and ASMified code which will help you in your class generation.</description>
 	<version>0.3</version>
 	<vendor>Cédric Champeau</vendor>
-	<idea-version since-build="8000"/>
+	<idea-version since-build="103.14"/>
 
     <change-notes><![CDATA[
+        <b>Version 0.3.1</b>
+        <ul>
+            <li>Updated for IntelliJ IDEA 10.0.2</li>
+        </ul>
         <b>Version 0.3</b>
         <ul>
             <li>Add diff view popup which shows the differences with the previous version of bytecode</li>

@@ -18,10 +18,7 @@
 
 package org.objectweb.asm.idea;
 
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.PlatformDataKeys;
-import com.intellij.openapi.actionSystem.Presentation;
+import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.compiler.CompileContext;
@@ -30,6 +27,7 @@ import com.intellij.openapi.compiler.CompileStatusNotification;
 import com.intellij.openapi.compiler.CompilerManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.project.Project;
@@ -39,6 +37,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
+import com.intellij.psi.util.PsiUtil;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.idea.config.ASMPluginComponent;
@@ -90,9 +89,14 @@ public class ShowBytecodeOutlineAction extends AnAction {
             final CompilerModuleExtension cme = CompilerModuleExtension.getInstance(module);
             final CompilerManager compilerManager = CompilerManager.getInstance(project);
             final VirtualFile[] files = {virtualFile};
-            final CompileScope compileScope = compilerManager.createFilesCompileScope(files);
             if ("class".equals(virtualFile.getExtension())) {
                 updateToolWindowContents(project, virtualFile);
+            } else if (!virtualFile.isInLocalFileSystem() && !virtualFile.isWritable()) {
+                // probably a source file in a library
+                final PsiClass[] psiClasses = ((PsiClassOwner) psiFile).getClasses();
+                if (psiClasses.length>0) {
+                    updateToolWindowContents(project, psiClasses[0].getOriginalElement().getContainingFile().getVirtualFile());
+                }
             } else {
                 final Application application = ApplicationManager.getApplication();
                 application.runWriteAction(new Runnable() {
@@ -102,14 +106,11 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 });
                 application.executeOnPooledThread(new Runnable() {
                     public void run() {
+                        final CompileScope compileScope = compilerManager.createFilesCompileScope(files);
                         final VirtualFile[] result = {null};
                         VirtualFile[] outputDirectories = cme == null ? null : cme.getOutputRoots(true);
                         if (outputDirectories != null && compilerManager.isUpToDate(compileScope)) {
                             result[0] = findClassFile(outputDirectories, psiFile);
-                            if (result[0]==null && cme!=null) {
-                                // check if file is in test output directory
-
-                            }
                         } else {
                             final Semaphore semaphore = new Semaphore(1);
                             try {
@@ -129,7 +130,7 @@ public class ShowBytecodeOutlineAction extends AnAction {
                                             }
                                             semaphore.release();
                                         }
-                                    }, true);
+                                    });
                                 }
                             });
                             try {
