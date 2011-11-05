@@ -24,12 +24,17 @@ package org.objectweb.asm.idea;
  * Time: 22:07
  */
 
+import org.objectweb.asm.*;
 import reloc.org.objectweb.asm.*;
+import reloc.org.objectweb.asm.Label;
+import reloc.org.objectweb.asm.Opcodes;
+import reloc.org.objectweb.asm.Type;
 import reloc.org.objectweb.asm.commons.Method;
 import org.objectweb.asm.idea.config.GroovyCodeStyle;
 import reloc.org.objectweb.asm.util.*;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -331,6 +336,9 @@ public class GroovifiedTextifier extends Textifier {
          * @param l a label.
          */
         protected void appendLabel(final Label l) {
+            if (labelNames == null) {
+                labelNames = new HashMap<reloc.org.objectweb.asm.Label, String>();
+            }
             String name = (String) labelNames.get(l);
             if (name == null) {
                 name = "l" + labelNames.size();
