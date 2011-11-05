@@ -24,22 +24,19 @@ package org.objectweb.asm.idea;
  * Time: 22:07
  */
 
-import org.objectweb.asm.*;
-import org.objectweb.asm.commons.EmptyVisitor;
-import org.objectweb.asm.commons.Method;
+import reloc.org.objectweb.asm.*;
+import reloc.org.objectweb.asm.commons.Method;
 import org.objectweb.asm.idea.config.GroovyCodeStyle;
-import org.objectweb.asm.util.AbstractVisitor;
-import org.objectweb.asm.util.TraceAnnotationVisitor;
-import org.objectweb.asm.util.TraceClassVisitor;
-import org.objectweb.asm.util.TraceMethodVisitor;
+import reloc.org.objectweb.asm.util.*;
 
-import java.io.PrintWriter;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * A customized trace visitor which outputs code compatible with the Groovy @groovyx.ast.bytecode.Bytecode AST
  * transform.
  */
-public class GroovifiedTraceVisitor extends TraceClassVisitor {
+public class GroovifiedTextifier extends Textifier {
 
     private final static String[] GROOVY_DEFAULT_IMPORTS = {
             "java.io.",
@@ -66,18 +63,16 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
 
     private final GroovyCodeStyle codeStyle;
 
-    public GroovifiedTraceVisitor(final GroovyCodeStyle codeStyle, PrintWriter pw) {
-        super(pw);
+    public GroovifiedTextifier(final GroovyCodeStyle codeStyle) {
         this.codeStyle = codeStyle;
     }
 
-    @Override
-    protected TraceMethodVisitor createTraceMethodVisitor() {
-        return new GroovyTraceMethodVisitor(codeStyle);
+    protected Textifier createTextifier() {
+        return new GroovifiedMethodTextifier(codeStyle);
     }
 
     @Override
-    public MethodVisitor visitMethod(final int access, final String name, final String desc, final String signature, final String[] exceptions) {
+    public Textifier visitMethod(final int access, final String name, final String desc, final String signature, final String[] exceptions) {
         buf.setLength(0);
         buf.append('\n');
         if ((access & Opcodes.ACC_DEPRECATED) != 0) {
@@ -117,13 +112,9 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         buf.append('\n');
         text.add(buf.toString());
 
-        GroovyTraceMethodVisitor tcv = (GroovyTraceMethodVisitor) createTraceMethodVisitor();
+        GroovifiedMethodTextifier tcv = (GroovifiedMethodTextifier) createTextifier();
         text.add(tcv.getText());
         text.add("  }\n");
-        if (cv != null) {
-            tcv.setMethodVisitor(cv.visitMethod(access, name, desc, signature, exceptions));
-        }
-
         return tcv;
     }
 
@@ -175,13 +166,17 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         return className;
     }
 
-    protected static class GroovyTraceMethodVisitor extends TraceMethodVisitor {
+    protected static class GroovifiedMethodTextifier extends Textifier {
 
         private final GroovyCodeStyle codeStyle;
+        private static final Textifier EMPTY_TEXTIFIER = new Textifier() {
+            @Override
+            public List<Object> getText() {
+                return Collections.emptyList();
+            }
+        };
 
-        private static final EmptyVisitor EMPTY_ANNOTATION_VISITOR = new EmptyVisitor();
-
-        public GroovyTraceMethodVisitor(final GroovyCodeStyle codeStyle) {
+        public GroovifiedMethodTextifier(final GroovyCodeStyle codeStyle) {
             this.codeStyle = codeStyle;
         }
 
@@ -203,10 +198,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             buf.setLength(0);
             buf.append(tab2).append(OPCODES[opcode].toLowerCase()).append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitInsn(opcode);
-            }
         }
 
         public void visitIntInsn(final int opcode, final int operand) {
@@ -219,10 +210,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
                             : Integer.toString(operand))
                     .append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitIntInsn(opcode, operand);
-            }
         }
 
         public void visitVarInsn(final int opcode, final int var) {
@@ -233,10 +220,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
                     .append(var)
                     .append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitVarInsn(opcode, var);
-            }
         }
 
         public void visitTypeInsn(final int opcode, final String type) {
@@ -255,10 +238,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             }
             buf.append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitTypeInsn(opcode, type);
-            }
         }
 
         public void visitFieldInsn(
@@ -284,9 +263,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             buf.append('\n');
             text.add(buf.toString());
 
-            if (mv != null) {
-                mv.visitFieldInsn(opcode, owner, name, desc);
-            }
         }
 
         public void visitMethodInsn(
@@ -320,10 +296,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             }
             buf.append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitMethodInsn(opcode, owner, name, desc);
-            }
         }
 
         public void visitJumpInsn(final int opcode, final Label label) {
@@ -335,25 +307,21 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             appendLabel(label);
             buf.append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitJumpInsn(opcode, label);
-            }
         }
 
         @Override
-        public AnnotationVisitor visitParameterAnnotation(final int parameter, final String desc, final boolean visible) {
-            return EMPTY_ANNOTATION_VISITOR;
+        public Textifier visitParameterAnnotation(final int parameter, final String desc, final boolean visible) {
+            return EMPTY_TEXTIFIER;
         }
 
         @Override
-        public AnnotationVisitor visitAnnotation(final String desc, final boolean visible) {
-            return EMPTY_ANNOTATION_VISITOR;
+        public Textifier visitAnnotation(final String desc, final boolean visible) {
+            return EMPTY_TEXTIFIER;
         }
 
         @Override
-        public AnnotationVisitor visitAnnotationDefault() {
-            return EMPTY_ANNOTATION_VISITOR;
+        public Textifier visitAnnotationDefault() {
+            return EMPTY_TEXTIFIER;
         }
 
         /**
@@ -378,17 +346,13 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             if (codeStyle == GroovyCodeStyle.GROOVIFIER_0_2_0) buf.append(':');
             buf.append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitLabel(label);
-            }
         }
 
         public void visitLdcInsn(final Object cst) {
             buf.setLength(0);
             buf.append(tab2).append("ldc ");
             if (cst instanceof String) {
-                AbstractVisitor.appendString(buf, (String) cst);
+                Printer.appendString(buf, (String) cst);
             } else if (cst instanceof Type) {
                 buf.append(((Type) cst).getDescriptor()).append(".class");
             } else if (cst instanceof Float) {
@@ -403,9 +367,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             buf.append('\n');
             text.add(buf.toString());
 
-            if (mv != null) {
-                mv.visitLdcInsn(cst);
-            }
         }
 
         public void visitIincInsn(final int var, final int increment) {
@@ -417,10 +378,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
                     .append(increment)
                     .append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitIincInsn(var, increment);
-            }
         }
 
         public void visitTableSwitchInsn(
@@ -439,10 +396,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             appendLabel(dflt);
             buf.append(tab2).append("\n)\n");
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitTableSwitchInsn(min, max, dflt, labels);
-            }
         }
 
         public void visitLookupSwitchInsn(
@@ -460,10 +413,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             appendLabel(dflt);
             buf.append(tab2).append("\n)\n");
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitLookupSwitchInsn(dflt, keys, labels);
-            }
         }
 
         public void visitMultiANewArrayInsn(final String desc, final int dims) {
@@ -478,10 +427,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             }
             buf.append(',').append(dims).append('\n');
             text.add(buf.toString());
-
-            if (mv != null) {
-                mv.visitMultiANewArrayInsn(desc, dims);
-            }
         }
 
         public void visitTryCatchBlock(
@@ -511,19 +456,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
             buf.append('\n');
             text.add(buf.toString());
 
-            if (mv != null) {
-                mv.visitTryCatchBlock(start, end, handler, type);
-            }
-        }
-
-        @Override
-        protected TraceAnnotationVisitor createTraceAnnotationVisitor() {
-            return new TraceAnnotationVisitor() {
-                @Override
-                public AnnotationVisitor visitAnnotation(final String name, final String desc) {
-                    return EMPTY_ANNOTATION_VISITOR;
-                }
-            };
         }
 
         @Override
@@ -534,9 +466,6 @@ public class GroovifiedTraceVisitor extends TraceClassVisitor {
         public void visitMaxs(final int maxStack, final int maxLocals) {
         }
 
-        public void setMethodVisitor(final MethodVisitor methodVisitor) {
-            this.mv = methodVisitor;
-        }
     }
 
 

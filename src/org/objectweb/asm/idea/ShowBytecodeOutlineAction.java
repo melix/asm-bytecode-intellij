@@ -27,7 +27,6 @@ import com.intellij.openapi.compiler.CompileStatusNotification;
 import com.intellij.openapi.compiler.CompilerManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
-import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.project.Project;
@@ -37,12 +36,11 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.util.PsiUtil;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
+import reloc.org.objectweb.asm.ClassReader;
+import reloc.org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.idea.config.ASMPluginComponent;
-import org.objectweb.asm.util.ASMifierClassVisitor;
-import org.objectweb.asm.util.TraceClassVisitor;
+import reloc.org.objectweb.asm.util.ASMifier;
+import reloc.org.objectweb.asm.util.TraceClassVisitor;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -209,14 +207,14 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 if (config.isSkipCode()) flags = flags | ClassReader.SKIP_CODE;
 
                 reader.accept(visitor, flags);
-                BytecodeOutline.getInstance(project).setCode(file,stringWriter.toString());
+                BytecodeOutline.getInstance(project).setCode(file, stringWriter.toString());
                 stringWriter.getBuffer().setLength(0);
-                visitor = new GroovifiedTraceVisitor(config.getCodeStyle(), new PrintWriter(stringWriter));
-                reader.accept(visitor, ClassReader.SKIP_FRAMES|ClassReader.SKIP_DEBUG);
+                reader.accept(new TraceClassVisitor(null, new GroovifiedTextifier(config.getCodeStyle()), new PrintWriter(stringWriter)), ClassReader.SKIP_FRAMES|ClassReader.SKIP_DEBUG);
                 GroovifiedView.getInstance(project).setCode(file,stringWriter.toString());
                 stringWriter.getBuffer().setLength(0);
-                visitor = new ASMifierClassVisitor(new PrintWriter(stringWriter));
-                reader.accept(visitor, flags);
+                reader.accept(new TraceClassVisitor(null,
+                        new ASMifier(),
+                        new PrintWriter(stringWriter)), flags);
                 final BytecodeASMified asmified = BytecodeASMified.getInstance(project);
                 PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText("asm.java", stringWriter.toString());
                 CodeStyleManager.getInstance(project).reformat(psiFile);
