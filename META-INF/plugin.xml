@@ -47,6 +47,7 @@
 				text="Show Bytecode outline"
 				description="Shows the bytecode outline and ASMified code from the current class">
 			<add-to-group group-id="EditorPopupMenu" anchor="last"/>
+			<add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
             <add-to-group group-id="CodeMenu" anchor="last"/>
 		</action>
 	</actions>

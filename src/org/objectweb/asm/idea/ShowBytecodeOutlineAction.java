@@ -18,14 +18,16 @@
 
 package org.objectweb.asm.idea;
 
-import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.actionSystem.Presentation;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.compiler.CompileContext;
 import com.intellij.openapi.compiler.CompileScope;
 import com.intellij.openapi.compiler.CompileStatusNotification;
 import com.intellij.openapi.compiler.CompilerManager;
-import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtil;
@@ -59,15 +61,10 @@ public class ShowBytecodeOutlineAction extends AnAction {
 
     @Override
     public void update(final AnActionEvent e) {
-        final Editor editor = e.getData(PlatformDataKeys.EDITOR);
         final VirtualFile virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
+        final Project project = e.getData(PlatformDataKeys.PROJECT);
         final Presentation presentation = e.getPresentation();
-        if (editor == null || virtualFile == null) {
-            presentation.setEnabled(false);
-            return;
-        }
-        final Project project = editor.getProject();
-        if (project == null) {
+        if (project == null || virtualFile == null) {
             presentation.setEnabled(false);
             return;
         }
@@ -76,10 +73,8 @@ public class ShowBytecodeOutlineAction extends AnAction {
     }
 
     public void actionPerformed(AnActionEvent e) {
-        final Editor editor = e.getData(PlatformDataKeys.EDITOR);
         final VirtualFile virtualFile = e.getData(PlatformDataKeys.VIRTUAL_FILE);
-        if (editor == null) return;
-        final Project project = editor.getProject();
+        final Project project = e.getData(PlatformDataKeys.PROJECT);
         if (project == null || virtualFile == null) return;
         final PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
         if (psiFile instanceof PsiClassOwner) {
@@ -99,7 +94,7 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 final Application application = ApplicationManager.getApplication();
                 application.runWriteAction(new Runnable() {
                     public void run() {
-                        FileDocumentManager.getInstance().saveDocument(editor.getDocument());
+                        FileDocumentManager.getInstance().saveAllDocuments();
                     }
                 });
                 application.executeOnPooledThread(new Runnable() {
