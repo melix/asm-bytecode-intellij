@@ -11,7 +11,7 @@
     <orderEntry type="module-library">
       <library>
         <CLASSES>
-          <root url="jar://$MODULE_DIR$/lib/reloc-asm-debug-all-5.0_BETA.jar!/" />
+          <root url="jar://$MODULE_DIR$/lib/reloc-asm-debug-all-5.0.1.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
