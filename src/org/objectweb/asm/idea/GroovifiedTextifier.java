@@ -69,6 +69,7 @@ public class GroovifiedTextifier extends Textifier {
     private final GroovyCodeStyle codeStyle;
 
     public GroovifiedTextifier(final GroovyCodeStyle codeStyle) {
+        super(Opcodes.ASM5);
         this.codeStyle = codeStyle;
     }
 
@@ -174,7 +175,7 @@ public class GroovifiedTextifier extends Textifier {
     protected static class GroovifiedMethodTextifier extends Textifier {
 
         private final GroovyCodeStyle codeStyle;
-        private static final Textifier EMPTY_TEXTIFIER = new Textifier() {
+        private static final Textifier EMPTY_TEXTIFIER = new Textifier(Opcodes.ASM5) {
             @Override
             public List<Object> getText() {
                 return Collections.emptyList();
@@ -182,6 +183,7 @@ public class GroovifiedTextifier extends Textifier {
         };
 
         public GroovifiedMethodTextifier(final GroovyCodeStyle codeStyle) {
+            super(Opcodes.ASM5);
             this.codeStyle = codeStyle;
         }
 
