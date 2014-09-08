@@ -38,9 +38,9 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
+import org.objectweb.asm.idea.config.ASMPluginComponent;
 import reloc.org.objectweb.asm.ClassReader;
 import reloc.org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.idea.config.ASMPluginComponent;
 import reloc.org.objectweb.asm.util.ASMifier;
 import reloc.org.objectweb.asm.util.TraceClassVisitor;
 
@@ -190,6 +190,7 @@ public class ShowBytecodeOutlineAction extends AnAction {
                 ClassVisitor visitor = new TraceClassVisitor(new PrintWriter(stringWriter));
                 ClassReader reader = null;
                 try {
+                    file.refresh(false, false);
                     reader = new ClassReader(file.contentsToByteArray());
                 } catch (IOException e) {
                     return;
