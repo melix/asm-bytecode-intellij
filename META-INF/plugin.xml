@@ -9,6 +9,7 @@
         <b>Version 0.3.4</b>
         <ul>
             <li>Support bytecode display for inner classes based on the caret position in the active editor</li>
+            <li>Fix outline not beeing always updated when file changed</li>
         </ul>
         <b>Version 0.3.3</b>
         <ul>
