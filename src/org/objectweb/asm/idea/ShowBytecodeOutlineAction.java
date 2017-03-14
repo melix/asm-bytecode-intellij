@@ -82,7 +82,7 @@ public class ShowBytecodeOutlineAction extends AnAction {
         final PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
         if (psiFile instanceof PsiClassOwner) {
             final Module module = ModuleUtil.findModuleForPsiElement(psiFile);
-            final CompilerModuleExtension cme = CompilerModuleExtension.getInstance(module);
+            final CompilerModuleExtension cme = module != null ? CompilerModuleExtension.getInstance(module) : null;
             final CompilerManager compilerManager = CompilerManager.getInstance(project);
             final VirtualFile[] files = {virtualFile};
             if ("class".equals(virtualFile.getExtension())) {
