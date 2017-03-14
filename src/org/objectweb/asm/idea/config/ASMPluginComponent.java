@@ -53,7 +53,7 @@ public class ASMPluginComponent implements ProjectComponent, Configurable, Persi
     private boolean skipFrames = false;
     private boolean skipDebug = false;
     private boolean skipCode = false;
-    private boolean expandFrames;
+    private boolean expandFrames = false;
     private GroovyCodeStyle codeStyle = GroovyCodeStyle.LEGACY;
 
     private ASMPluginConfiguration configDialog;
